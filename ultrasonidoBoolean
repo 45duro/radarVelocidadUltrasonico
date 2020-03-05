@@ -1,0 +1,44 @@
+// ---------------------------------------------------------------------------
+// Example NewPing library sketch that pings 3 sensors 20 times a second.
+// ---------------------------------------------------------------------------
+
+#include <NewPing.h>
+
+#define SONAR_NUM 2      // Number of sensors.
+#define MAX_DISTANCE 21 // Maximum distance (in cm) to ping.
+
+NewPing sonar[SONAR_NUM] = {   // Sensor object array.
+  NewPing(43, 41, MAX_DISTANCE), // Each sensor's trigger pin, echo pin, and max distance to ping. 
+  NewPing(39, 37, MAX_DISTANCE), 
+ 
+};
+
+void setup() {
+  Serial.begin(115200); // Open serial monitor at 115200 baud to see ping results.
+  pinMode(40,OUTPUT);
+  pinMode(42,OUTPUT);
+  
+}
+
+void loop() { 
+  boolean medida1 = sonarReadBoolean(0, 19);
+  boolean medida2 = sonarReadBoolean(1, 19);
+  //Serial.println(medida2);
+  digitalWrite(40, medida1 );
+  digitalWrite(42, medida2);
+  
+  Serial.println();
+  
+}
+
+boolean sonarReadBoolean(byte numSensor, int medidaActivacion){
+  delay(50); // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
+  int medida = sonar[numSensor].ping_cm();  
+  Serial.println(medida);
+  if ( medida <= medidaActivacion){
+      return true;
+  }
+  else{
+      return false;
+  }
+}
