@@ -46,7 +46,8 @@ const char *txMENU[] = {                                // Los textos del menu p
   "1. Atras <<        ",
   "2. INICIAR Muestreo",
   "3. No. Muestras    ",
-  "4. Mostrar Tiempo  ",
+  "4. Espaciado cm    ",
+  "5. Guardar  "
 };
 
 const byte iMENU = COUNT(txMENU);                       // Numero de items/opciones del menu principal
@@ -81,6 +82,7 @@ struct MYDATA {         // Estructura STRUCT con las variables que almacenaran l
   int temp_y;
   short numeroDeMuestras;
   short modoAutomatico;
+  short distSensor;
 };
 union MEMORY {     // Estructura UNION para facilitar la lectura y escritura en la EEPROM de la estructura STRUCT
   MYDATA d;
@@ -184,7 +186,7 @@ void loop() {
         
         //Para salir del bucle
         
-        if(contador > 3){
+        if(contador > memory.d.numeroDeMuestras){
           banderaEscape = 0;
         }
         
@@ -294,7 +296,9 @@ void openMenu() {
         //openSubMenu( byte menuID, Screen screen, int *value, int minValue, int maxValue )
           case 0: readConfiguration();  exitMenu = true; break; //Salir y cancelar cambios
           case 1: openSubMenu( idxMenu, Screen::Flag, &startSamples, 0, 1); exitMenu = true; break;
-//        case 2: openSubMenu( idxMenu, Screen::Flag,   &goToHomeVar, 0, 1); exitMenu = true; break;
+          case 2: openSubMenu( idxMenu, Screen::Number, &memory.d.numeroDeMuestras, 2,50); exitMenu = true; break;
+          case 3: openSubMenu( idxMenu, Screen::Number, &memory.d.distSensor, 5, 20); break;
+          case 4: writeConfiguration(); exitMenu = true; break; //Salir y guardar
 //        case 3: openSubMenu( idxMenu, Screen::Number, &goToAlimentar,    0, 4);exitMenu = true; break; 
 //        case 4: openSubMenu( idxMenu, Screen::Number, &memory.d.tamanioCuadro, 80, 200); break;
 //        case 5: openSubMenu( idxMenu, Screen::Number, &memory.d.NroCuadros, 0, 20); break;
@@ -451,6 +455,7 @@ void readConfiguration()
     memory.d.time_y      = 0;
     memory.d.numeroDeMuestras = 5;
     memory.d.modoAutomatico=false;
+    memory.d.distSensor = 20;
     writeConfiguration();
   }
 }
