@@ -1,10 +1,12 @@
 #include <HCSR04.h>
-HCSR04 hc(A9, new int[2] {A0, A1}, 2); //initialisation class HCSR04 (trig pin , echo pin, number of sensor)
 
 #include "DHT.h"
 #define DHTPIN 17
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+
 DHT dht(DHTPIN, DHTTYPE);
+#define numSensors 5
+HCSR04 hc(7, new int[numSensors] {2, 3, 4, 5, 6}, numSensors); //initialisation class HCSR04 (trig pin , echo pin, number of sensor)
 
 
 float h, t;
@@ -25,7 +27,7 @@ DateTime now;
 // Cronómetro
 bool Flag1, Flag2, Flag3, Flag4, Flag5, Flag6;
 String TP1,TP2,TP3,TP4,TP5,TP6;
-unsigned long tParciales[6];// 6 porque son 6 banderas y seis veces almacenara el resultado
+unsigned long tParciales[numSensors];// 6 porque son 6 banderas y seis veces almacenara el resultado
 unsigned long inicio, finalizado, Ttranscurrido;
 unsigned long TiempoAhora = 0;
 
@@ -52,20 +54,19 @@ void setup() {
   Serial.println(F("Iniciado correctamente"));
 
 
-  //pinMode(A0, INPUT_PULLUP); // Boton de inicio
-  //pinMode(A1, INPUT_PULLUP); // TP1
-  pinMode(A2, INPUT_PULLUP); // TP2
-  pinMode(A3, INPUT_PULLUP); // TP3
-  pinMode(A4, INPUT_PULLUP); // TP4
-  pinMode(A5, INPUT_PULLUP); // TP5
-  pinMode(A6, INPUT_PULLUP); // TP6/RESET
 
 }
 
 
 
 void loop() {
-
+  
+//  radarSensorBool(0, 20.3)?Serial.println(true): false;
+//  radarSensorBool(0, 19.5)?Serial.println(true): false;
+//  radarSensorBool(0, 20.9)?Serial.println(true): false;
+//  radarSensorBool(0, 20.2)?Serial.println(true): false;
+//  radarSensorBool(0, 20.3)?Serial.println(true): false;
+  
   Sensores();
   now = rtc.now();
 
@@ -80,7 +81,7 @@ void loop() {
 }
 
 void Sensores() {
-  if ((Flag1 == 0) and (Flag2 == 0) and (Flag3 == 0) and (Flag4 == 0) and (Flag5 == 0) and (Flag6 == 0) and (radarSensorBool(1, 20.0))) {
+  if ((Flag1 == 0) and (Flag2 == 0) and (Flag3 == 0) and (Flag4 == 0) and (radarSensorBool(0, 20.2))) {
     inicio = millis();
     //esperar(1); //  por rebote
     Serial.println("Inicializar...");
@@ -89,51 +90,39 @@ void Sensores() {
     Serial.print(String("   Hora: ") + now.hour() + String(":") + now.minute() + String(":") + now.second());
     Serial.println(String("   Temperatura: ") + float(t) + String("  Humedad: ") + float(h));
   }
-  else if ((Flag1 == 1) and (radarSensorBool(0, 20.0)))  {
+  else if ((Flag1 == 1) and (radarSensorBool(1, 19.8)))  {
     finalizado = millis();
     //esperar(0); // por rebote
     MostrarResultado();
     Flag1 = 0; Flag2 = 1;
     Serial.println("Flag1...");
   }
-  else if ((analogRead(A2) <= 500) and (Flag2 == 1) )  {
+  else if ((radarSensorBool(2, 21.2)) and (Flag2 == 1) )  {
     finalizado = millis();
-    esperar(300); // por rebote
+    //esperar(300); // por rebote
     MostrarResultado();
     Flag2 = 0; Flag3 = 1;
     Serial.println("Flag2...");
   }
-  else if ((analogRead(A3) <= 500) and (Flag3 == 1) )  {
+  else if ((radarSensorBool(3, 20.2)) and (Flag3 == 1) )  {
     finalizado = millis();
-    esperar(300); // por rebote
+    //esperar(300); // por rebote
     MostrarResultado();
     Flag3 = 0; Flag4 = 1;
     Serial.println("Flag3...");
   }
-  else if ((analogRead(A4) <= 500) and (Flag4 == 1) )  {
+  else if ((radarSensorBool(4, 20.5)) and (Flag1 == 0) and (Flag2 == 0) and (Flag3 == 0) and (Flag4 == 1)   )  {
     finalizado = millis();
-    esperar(300); // por rebote
+    //esperar(300); // por rebote
     MostrarResultado();
-    Flag4 = 0; Flag5 = 1;
-    Serial.println("Flag4...");
-  }
-  else if ((analogRead(A5) <= 500) and (Flag5 == 1) )  {
-    finalizado = millis();
-    esperar(300); // por rebote
-    MostrarResultado();
-    Flag5 = 0; Flag6 = 1;
-    Serial.println("Flag5...");
-  }
-
-  else if ((analogRead(A6) <= 500) and (Flag1 == 0) and (Flag2 == 0) and (Flag3 == 0) and (Flag4 == 0) and (Flag5 == 0) and (Flag6 == 1)) {
-    finalizado = millis();
-    esperar(300); // por rebote
-    MostrarResultado();
-    Flag6 = 0;
+    Flag4 = 0;
     inicio = millis();
-    Serial.println("Flag6... y reset");
+    Serial.println("Flag4... y reset");
     Grabar();
+    
   }
+  //************************************************************
+  
 }
 
 void MostrarResultado() {
@@ -159,7 +148,7 @@ void MostrarResultado() {
   Serial.print(ms, 0); Serial.println("ms");
   Serial.println();
   //Para que se reinicie el contador y no supere los 6 sensores
-  contadorParciales >= 6? contadorParciales=0:contadorParciales++;
+  contadorParciales >= numSensors? contadorParciales=0:contadorParciales++;
   
 }
 
@@ -171,10 +160,10 @@ void Grabar() {
     logFile.print(String("Fecha:\t") + now.day() + String("/") + now.month() + String("/") + now.year());
     logFile.print(String("\tHora:\t") + now.hour() + String(":") + now.minute() + String(":") + now.second());
     logFile.print(String("\tTemperatura:\t") + float(t) + String("\tHumedad:\t") + float(h));
-    for(byte i = 0; i < 6; i++){ 
+    for(byte i = 0; i < numSensors; i++){ 
       Serial.println("impresion de parciales");
-      Serial.print(String("p") + int(i) + String(" ") + tParciales[i]);
-      logFile.print(String("\tp") + i + String(":\t") + tParciales[i]);
+      Serial.print(String("pTecno") + int(i+1) + String(" ") + tParciales[i]);
+      logFile.print(String("\tp") + int(i+1) + String(":\t") + tParciales[i]);
     }
     logFile.println();
     logFile.close();
@@ -195,9 +184,9 @@ void esperar(int periodo) {
 }
 
 boolean radarSensorBool(byte numSensor, float comparador) {
-  esperar(50);
+  esperar(33);
   float medida = hc.dist(numSensor);
-  Serial.println(medida);// Serial.print("\t");
+  //Serial.println(medida);// Serial.print("\t");
   //medida <= 19.5 ? digitalWrite(40, 1) : digitalWrite(40, 0);
   if (medida <= comparador){
     //Serial.print("acierto");
