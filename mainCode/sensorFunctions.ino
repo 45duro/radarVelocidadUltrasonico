@@ -41,8 +41,7 @@ void esperar(int periodo){
 
 void sensores(){
   if(!flag1 and !flag2 and !flag3 and !flag4 and !digitalRead(sensor[0])){
-    tActual = millis();
-    tiemposParciales[0]=tActual;
+    tiemposParciales[0] = millis();
     flag1 = 1;
     lcd.clear();
     lcd.setCursor(0,4);
@@ -50,19 +49,16 @@ void sensores(){
     
   }
   else if(flag1 and !digitalRead(sensor[1])){
-    tActual = millis();
+    tiemposParciales[1] = millis();
     flag1 = 0; flag2 = 1;
-    tiemposParciales[1]= tActual;
-
     memoriaTramos++;
     lcd.clear();
     lcd.setCursor(0,4);
     lcd.print("  Tramo 2 ");
   }
   else if(flag2 and !digitalRead(sensor[2])){
-    tActual = millis();
+    tiemposParciales[2] = millis();
     flag2 = 0; flag3 = 1;
-    tiemposParciales[2]= tActual;
     memoriaTramos++;
     lcd.clear();
     lcd.setCursor(0,4);
@@ -70,19 +66,17 @@ void sensores(){
   }
   
   else if(flag3 and !digitalRead(sensor[3])){
-    tActual = millis();
+    tiemposParciales[3] = millis();
     flag3 = 0; flag4 = 1;
-    tiemposParciales[3]= tActual;
     memoriaTramos++;
     lcd.clear();
     lcd.setCursor(0,4);
     lcd.print("  Tramo 4 ");
   }
   else if(flag4 and !digitalRead(sensor[4])){
-    tActual = millis();
+    tiemposParciales[4] = millis();
     //Reiniciar variables
     flag4=0;
-    tiemposParciales[4]= tActual;
     memoriaTramos++;
     //Serial.println(tiemposParciales[4]);
     //Serial.println(tActual);
@@ -98,33 +92,52 @@ void sensores(){
 }
 
 void getTiemposParciales(byte valorTramo){
-
+  
   //Limpiar primero el array
   for(byte i = 0; i < numSensors; i++){
-    tiemposParcialesFiltrados[i]=0;
+    Serial.println(tiemposParciales[i]);
   }
   
   for(byte i = 0; i < valorTramo; i++){
-      tiemposParcialesFiltrados[i]=tiemposParciales[i+1]-tiemposParciales[i];
-      Serial.print(tiemposParcialesFiltrados[i]);
+      tiemposParciales[i]=tiemposParciales[i+1]-tiemposParciales[i];
+      Serial.print(tiemposParciales[i]);
       Serial.print("\t");
   }
-    Serial.println();
-    Serial.println();
-}
-
-
-void funcionPrincipalSensor(char dato){
-
-  if(dato='t'){
+  Serial.println();
     
-  }
-  
 }
 
 
 
 
-void Guardar(){
+
+
+
+void Guardar(byte valorTramo){
+   
+   File dataFile = SD.open("datalog.txt", FILE_WRITE);
+   if(dataFile){
+    
+    Serial.print(now.day() + String("/") + now.month() + String("/") + now.year());
+    Serial.print(String("\t") + now.hour() + String(":") + now.minute() + String(":") + now.second());
+    Serial.print("\t");
+    
+    dataFile.print(String("Fecha:\t") + now.day() + String("/") + now.month() + String("/") + now.year());
+    dataFile.print(String("\tHora:\t") + now.hour() + String(":") + now.minute() + String(":") + now.second());
+    dataFile.print("\t");
+    for(byte i = 0; i < valorTramo; i++){
+      float velocidad= (memory.d.distSensor/float(tiemposParciales[i]));
+      Serial.print(velocidad,6);
+      //Velocidad
+      Serial.print("\t");
+    }
+    Serial.println();
+  }
+
+  delay(1000);
+  dataFile.close();
+ 
   
+  
+
 }

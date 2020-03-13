@@ -5,6 +5,7 @@
 #include <LCD.h>
 #include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
+#include <SPI.h>
 #include <SD.h>
 #include <RTClib.h>
 
@@ -12,7 +13,7 @@
     OBJETOS DE LAS LIBRERIAS
 */
 LiquidCrystal_I2C lcd(0x23, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE); //Configuracion del LCD I2C (puede ser necesario cambiar el primer valor con la direccion del LCD)
-File logFile;
+
 RTC_DS3231 rtc;
 DateTime now;
 
@@ -20,8 +21,8 @@ DateTime now;
     MACROS, CONSTANTES, ENUMERADORES, ESTRUCTURAS Y VARIABLES GLOBALES
 */
 #define COUNT(x) sizeof(x)/sizeof(*x)                   // Macro para contar el numero de elementos de un array
-const byte pENCO_SW   = A0;                              // Pin encoder SW
-const byte pENCO_DT   = A1;                              // Pin encoder DT
+const byte pENCO_SW   = A1;                              // Pin encoder SW
+const byte pENCO_DT   = A3;                              // Pin encoder DT
 const byte pENCO_CLK  = A2;                              // Pin encoder CLK
 const byte rowsLCD    = 4;                              // Filas del LCD
 const byte columnsLCD = 20;                             // Columnas del LCD
@@ -52,34 +53,13 @@ const char *txMENU[] = {                                // Los textos del menu p
 
 const byte iMENU = COUNT(txMENU);                       // Numero de items/opciones del menu principal
 
-enum eSMENU1 { Milliseconds, Seconds, Minutes, Hours }; // Enumerador de las opciones disponibles del submenu 1 (tienen que seguir el mismo orden que los textos)
-const char *txSMENU1[] = {        // Textos del submenu 1, longitud maxima = columnsLCD-2, rellenar caracteres sobrantes con espacios
-  "  Milisegundos  ",
-  "    Segundos    ",
-  "     Minutos    ",
-  "     Horas      "
-};
 
-
-enum eSMENU2 {Automatico, Manual };  // Enumerador de las opciones disponibles del submenu 2 (tienen que seguir el mismo orden que los textos)
-const char *txSMENU2[] = {        // Textos del submenu 1, longitud maxima = columnsLCD-2, rellenar caracteres sobrantes con espacios
-  "   Automatico   ",
-  "     Manual     "
-};
 /* ESTRUCTURAS CONFIGURACION */
 struct MYDATA {         // Estructura STRUCT con las variables que almacenaran los datos que se guardaran en la memoria EEPROM
   int sizeCuadre;
   
   
   int initialized;
-  int time_show;
-  int time_unit;
-  int time_x;
-  int time_y;
-  int temp_show;
-  int temp_unit;
-  int temp_x;
-  int temp_y;
   short numeroDeMuestras;
   short modoAutomatico;
   short distSensor;
@@ -98,23 +78,23 @@ memory;
 #define DEBUG 1
 #define numSensors 5
 #define ledOn      8
-
+#define chipSelect 10
 
 //----------------------------------------
 
 //****************************************
 //Variables de Funcionamiento
 //****************************************
-byte sensor[]={2,3,4,5,6};
+const byte sensor[]={3,4,5,6,7};
 
 bool flag1, flag2, flag3, flag4, flag5;
-unsigned long tiemposParciales[numSensors], tiemposParcialesFiltrados[numSensors];
+unsigned int tiemposParciales[numSensors];
 unsigned int espacioSensores;
 
 short startSamples=false;
 
 //-----------cronometro------------------//
-unsigned long tActual, tAnterior, tTranscurrido;
+//unsigned long tActual, tAnterior, tTranscurrido;
 //----------------------------------------
 
 
@@ -132,10 +112,29 @@ void setup() {
     pinMode(sensor[i], INPUT);
   }
 
-    // Inicia el LCD:
+  // Carga la configuracion de la EEPROM, y la configura la primera vez:
+  readConfiguration();
+  
+  // Inicia el LCD:
   lcd.begin(columnsLCD, rowsLCD);
   lcd.createChar(iARROW, bARROW);
 
+
+  //Iniciar SD
+  Serial.print(F("Iniciando SD..."));
+  if (!SD.begin(chipSelect)) {
+    lcd.setCursor(0, 0);
+    lcd.print("Tarjeta Falla, o no esta presente");
+    // don't do anything more:
+    while (1);
+  }
+  Serial.println("card initialized.");
+
+
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
   #if !DEBUG
   // Imprime la informacion del proyecto:
     lcd.setCursor(0, 0); lcd.print("  Sensor  Velocidad ");
@@ -154,7 +153,7 @@ void setup() {
 
   //Enviar el sistema de calibracion de inmediato
   calibracion();
-  delay(2000);
+  delay(1000);
 }
 byte memoriaTramos = 0;
 
@@ -170,20 +169,28 @@ void loop() {
      
      do{
       if(!digitalRead(pENCO_SW)){
-        delay(300);
+        delay(500);
         lcd.clear();
         //Imprimir en la interfaz
         lcd.print("     Muestra "); lcd.print(contador);
+
         ++contador;
 
         //resetear todas las flags para nueva muestra
         flag1=0; flag2=0; flag3=0; flag4=0; flag5=0;
 
+
         //Obtener Tiempos
         getTiemposParciales(memoriaTramos);
+
         
+//        Serial.println("obteniendo parciales");
+//        Serial.println(contador);
+//        delay(1000);
         //Almacenar en memoria SD
-        
+        Guardar(memoriaTramos);
+
+
         //Para salir del bucle
         
         if(contador > memory.d.numeroDeMuestras){
@@ -198,16 +205,13 @@ void loop() {
      }while(banderaEscape);
 
      esperar(500);
-     Guardar();
+     
      startSamples = 0;
    }
  
   
   
-  //now=rtc.now();
-  //lcd.clear();
-  //lcd.print(now.year()); lcd.print(" "); lcd.print(now.month());  lcd.print(" "); lcd.print(now.day());
-
+ 
 }
 
 
@@ -412,12 +416,12 @@ void openSubMenu( byte menuID, Screen screen, int *value, int minValue, int maxV
       if ( screen == Screen::Menu1 )
       {
         lcd.setCursor(1, 1);
-        lcd.print(txSMENU1[*value]);
+        //lcd.print(txSMENU1[*value]);
       }
       else if ( screen == Screen::Menu2 )
       {
         lcd.setCursor(1, 1);
-        lcd.print(txSMENU2[*value]);
+        //lcd.print(txSMENU2[*value]);
       }
       else if ( screen == Screen::Flag )
       {
@@ -449,10 +453,6 @@ void readConfiguration()
   if ( memory.d.initialized != 'Y' )  {
     Serial.println("entro en initialized");
     memory.d.initialized = 'Y';
-    memory.d.time_show   = 1;
-    memory.d.time_unit   = 2;
-    memory.d.time_x      = 0;
-    memory.d.time_y      = 0;
     memory.d.numeroDeMuestras = 5;
     memory.d.modoAutomatico=false;
     memory.d.distSensor = 20;
