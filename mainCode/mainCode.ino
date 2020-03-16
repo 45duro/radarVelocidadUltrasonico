@@ -1,3 +1,4 @@
+#define reloj 1
 /**
     LIBRERIAS NECESARIAS PARA EL FUNCIONAMIENTO DEL CODIGO
 */
@@ -7,26 +8,29 @@
 #include <EEPROM.h>
 #include <SPI.h>
 #include <SD.h>
-#include <RTClib.h>
 
+#if reloj
+  #include <RTClib.h>
+#endif
 /**
     OBJETOS DE LAS LIBRERIAS
 */
-LiquidCrystal_I2C lcd(0x23, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE); //Configuracion del LCD I2C (puede ser necesario cambiar el primer valor con la direccion del LCD)
+LiquidCrystal_I2C lcd(0x23, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 
-RTC_DS3231 rtc;
-DateTime now;
-
+#if reloj
+  RTC_DS3231 rtc;
+  DateTime now;
+#endif
 /**
     MACROS, CONSTANTES, ENUMERADORES, ESTRUCTURAS Y VARIABLES GLOBALES
 */
 #define COUNT(x) sizeof(x)/sizeof(*x)                   // Macro para contar el numero de elementos de un array
-const byte pENCO_SW   = A1;                              // Pin encoder SW
-const byte pENCO_DT   = A3;                              // Pin encoder DT
-const byte pENCO_CLK  = A2;                              // Pin encoder CLK
-const byte rowsLCD    = 4;                              // Filas del LCD
-const byte columnsLCD = 20;                             // Columnas del LCD
-const byte iARROW     = 0;                              // ID icono flecha
+#define  pENCO_SW    A1                              // Pin encoder SW
+#define  pENCO_DT    A3                              // Pin encoder DT
+#define  pENCO_CLK   A2                              // Pin encoder CLK
+#define  rowsLCD     4                              // Filas del LCD
+#define  columnsLCD  20                             // Columnas del LCD
+const byte  iARROW = 0;                              // ID icono flecha
 
 const byte bARROW[]   = {                               // Bits icono flecha
   B00000, 
@@ -40,14 +44,14 @@ const byte bARROW[]   = {                               // Bits icono flecha
 };
 
 enum Button { Unknown, Ok, Left, Right } btnPressed;    // Enumerador con los diferentes botones disponibles
-enum Screen { Menu1, Menu2, Menu3, Flag, Number };             // Enumerador con los distintos tipos de submenus disponibles
+enum Screen { Menu1, Menu2, Flag, Number };             // Enumerador con los distintos tipos de submenus disponibles
 
 
 const char *txMENU[] = {                                // Los textos del menu principal, la longitud maxima = columnsLCD-1, rellenar caracteres sobrantes con espacios.
-  "1. Atras <<        ",
+  "1. Atras << ",
   "2. INICIAR Muestreo",
-  "3. No. Muestras    ",
-  "4. Espaciado cm    ",
+  "3. No. Muestras",
+  "4. Espaciado cm",
   "5. Guardar  "
 };
 
@@ -56,13 +60,13 @@ const byte iMENU = COUNT(txMENU);                       // Numero de items/opcio
 
 /* ESTRUCTURAS CONFIGURACION */
 struct MYDATA {         // Estructura STRUCT con las variables que almacenaran los datos que se guardaran en la memoria EEPROM
-  int sizeCuadre;
+  //int sizeCuadre;
   
   
-  int initialized;
-  short numeroDeMuestras;
-  short modoAutomatico;
-  short distSensor;
+  byte initialized;
+  byte numeroDeMuestras;
+  byte modoAutomatico;
+  byte distSensor;
 };
 union MEMORY {     // Estructura UNION para facilitar la lectura y escritura en la EEPROM de la estructura STRUCT
   MYDATA d;
@@ -75,10 +79,10 @@ memory;
 //****************************************
 //definiciones de Funcionamiento
 //****************************************
-#define DEBUG 1
+#define DEBUG 0
 #define numSensors 5
 #define ledOn      8
-#define chipSelect 10
+#define chipSelect 2
 
 //----------------------------------------
 
@@ -87,11 +91,11 @@ memory;
 //****************************************
 const byte sensor[]={3,4,5,6,7};
 
-bool flag1, flag2, flag3, flag4, flag5;
-unsigned int tiemposParciales[numSensors];
-unsigned int espacioSensores;
+volatile bool flag1, flag2, flag3, flag4, flag5;
+volatile unsigned int tiemposParciales[numSensors];
+volatile int espacioSensores;
 
-short startSamples=false;
+byte startSamples=false;
 
 //-----------cronometro------------------//
 //unsigned long tActual, tAnterior, tTranscurrido;
@@ -125,16 +129,20 @@ void setup() {
   if (!SD.begin(chipSelect)) {
     lcd.setCursor(0, 0);
     lcd.print("Tarjeta Falla, o no esta presente");
+    lcd.setCursor(0,3);
+    lcd.print("omitir <enter>");
     // don't do anything more:
-    while (1);
+    while (digitalRead(pENCO_SW));
   }
   Serial.println("card initialized.");
 
-
+  #if reloj
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     while (1);
   }
+  #endif
+  
   #if !DEBUG
   // Imprime la informacion del proyecto:
     lcd.setCursor(0, 0); lcd.print("  Sensor  Velocidad ");
@@ -165,7 +173,7 @@ void loop() {
      //PONER AQUI Lo del sensor principal
      lcd.print("     Muestra 1      ");
      boolean banderaEscape = 1;
-     int contador = 1;
+     byte contador = 1;
      
      do{
       if(!digitalRead(pENCO_SW)){
@@ -188,7 +196,9 @@ void loop() {
 //        Serial.println(contador);
 //        delay(1000);
         //Almacenar en memoria SD
+        delay(1000);
         Guardar(memoriaTramos);
+        delay(1000);
 
 
         //Para salir del bucle
@@ -204,7 +214,7 @@ void loop() {
       sensores();
      }while(banderaEscape);
 
-     esperar(500);
+     delay(500);
      
      startSamples = 0;
    }
@@ -230,8 +240,8 @@ void mostrarPantalla(){
   /*para borrar  
    * 
    */
-  //else if ( btnPressed == Button::Left )
-  //  lcd.print("hola mundo");
+  else if ( btnPressed == Button::Left )
+    calibracion();
 
   
   // Pinta la pantalla principal cada 1 segundo:
@@ -241,11 +251,13 @@ void mostrarPantalla(){
 
     
       lcd.clear();
+      #if reloj
       now=rtc.now();
-
+      #endif
       lcd.setCursor(0,0);
       lcd.print("  SENSOR VELOCIDAD  ");
-      
+
+      #if reloj
       lcd.setCursor(0,2);
       lcd.print("Fecha: ");
       lcd.print(now.day()); lcd.print("/");
@@ -258,7 +270,7 @@ void mostrarPantalla(){
       lcd.print(now.minute()); lcd.print(":");
       lcd.print(now.second());
     
-  
+      #endif
 
     //Establecer el perfil de los metros enrollados
 //    lcd.setCursor(0,1);
@@ -377,7 +389,7 @@ void openMenu() {
    @param minValue  Valor minimo que puede tener la variable.
    @param maxValue  Valor maximo que puede tener la variable.
 */
-void openSubMenu( byte menuID, Screen screen, int *value, int minValue, int maxValue ) {
+void openSubMenu( byte menuID, Screen screen, byte *value, byte minValue, byte maxValue ) {
   boolean exitSubMenu = false;
   boolean forcePrint  = true;
 
