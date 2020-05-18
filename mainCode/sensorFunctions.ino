@@ -1,7 +1,3 @@
-
-
-
-
 void calibracion(){
   boolean bandera = 1;
   do{

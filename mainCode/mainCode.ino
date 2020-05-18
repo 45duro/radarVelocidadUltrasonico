@@ -48,11 +48,11 @@ enum Screen { Menu1, Menu2, Flag, Number };             // Enumerador con los di
 
 
 const char *txMENU[] = {                                // Los textos del menu principal, la longitud maxima = columnsLCD-1, rellenar caracteres sobrantes con espacios.
-  "1. Atras << ",
-  "2. INICIAR Muestreo",
-  "3. No. Muestras",
-  "4. Espaciado cm",
-  "5. Guardar  "
+  "1. Atras <<         ",
+  "2. INICIAR Muestreo ",
+  "3. No. Muestras     ",
+  "4. Espaciado cm     ",
+  "5. Guardar          "
 };
 
 const byte iMENU = COUNT(txMENU);                       // Numero de items/opciones del menu principal
@@ -61,8 +61,6 @@ const byte iMENU = COUNT(txMENU);                       // Numero de items/opcio
 /* ESTRUCTURAS CONFIGURACION */
 struct MYDATA {         // Estructura STRUCT con las variables que almacenaran los datos que se guardaran en la memoria EEPROM
   //int sizeCuadre;
-  
-  
   byte initialized;
   byte numeroDeMuestras;
   byte modoAutomatico;
@@ -79,7 +77,7 @@ memory;
 //****************************************
 //definiciones de Funcionamiento
 //****************************************
-#define DEBUG 0
+#define DEBUG 1
 #define numSensors 5
 #define ledOn      8
 #define chipSelect 2
@@ -103,7 +101,8 @@ byte startSamples=false;
 
 
 void setup() {
-  
+  //este delay lop tomamos para evitar saltos o bugs mientra se estabiliza la corriente
+  delay(3000);
   Serial.begin(115200);
     
   pinMode(pENCO_SW,  INPUT_PULLUP);
@@ -112,10 +111,15 @@ void setup() {
   pinMode(ledOn, OUTPUT);
 
   //definiendoPines
-  for(byte i = 2; i <= numSensors; i++){
+  /*
+  for(byte i = 0; i < numSensors; i++){
     pinMode(sensor[i], INPUT);
   }
+  */
+  pinMode(3, INPUT); pinMode(4, INPUT); pinMode(5, INPUT); pinMode(6, INPUT); pinMode(7, INPUT);
 
+
+  //---------------------------------------------
   // Carga la configuracion de la EEPROM, y la configura la primera vez:
   readConfiguration();
   
@@ -214,7 +218,7 @@ void loop() {
       sensores();
      }while(banderaEscape);
 
-     delay(500);
+     delay(800);
      
      startSamples = 0;
    }
@@ -271,18 +275,6 @@ void mostrarPantalla(){
       lcd.print(now.second());
     
       #endif
-
-    //Establecer el perfil de los metros enrollados
-//    lcd.setCursor(0,1);
-//    lcd.print("Un: ");
-//    lcd.print(memory.d.metrosEnrrollados);
-//    lcd.print(" m: ");
-//    double metraje;
-//    metraje=(memory.d.tamanioCuadro*memory.d.NroCuadros);
-//    metraje*=memory.d.lineasCargadas;
-//    metraje/=1000;
-//    //Serial.println(metraje);
-//    lcd.print(memory.d.metrosEnrrollados*metraje);
   }
 
 }
